@@ -1,0 +1,113 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.optimizers import SGD, Adam
+
+# Load the dataset
+data = pd.read_csv("insurance_dataset.csv")  # Replace with the correct path to your dataset
+
+# Exploratory Data Analysis (EDA)
+print("Data Head:\n", data.head())
+print("\nData Info:\n")
+data.info()
+print("\nMissing Values:\n", data.isnull().sum())
+print("\nStatistical Summary:\n", data.describe())
+
+# Data Preprocessing
+# Handle missing values
+data.dropna(inplace=True)
+
+# Encode categorical variables
+le = LabelEncoder()
+data['sex'] = le.fit_transform(data['sex'])
+data['smoker'] = le.fit_transform(data['smoker'])
+data['region'] = le.fit_transform(data['region'])
+
+# Split the data into features and target variable
+X = data.drop(columns=['total_charges', 'person_id'])  # Drop target and irrelevant columns
+y = data['total_charges']
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Feature scaling
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# Experiment 1: Simple Perceptron
+perceptron_model = Sequential([
+    Dense(1, input_dim=X_train.shape[1], activation='linear')
+])
+
+perceptron_model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+
+history = perceptron_model.fit(X_train, y_train, epochs=50, batch_size=32, validation_split=0.2)
+
+# Plot training history
+plt.plot(history.history['loss'], label='Loss')
+plt.plot(history.history['val_loss'], label='Val Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.title('Perceptron Training History')
+plt.legend()
+plt.show()
+
+# Experiment 2: Deep Neural Network (DNN)
+dnn_model = Sequential([
+    Dense(64, input_dim=X_train.shape[1], activation='relu'),
+    Dense(32, activation='relu'),
+    Dense(16, activation='relu'),
+    Dense(1, activation='linear')
+])
+
+dnn_model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+
+history_dnn = dnn_model.fit(X_train, y_train, epochs=100, batch_size=32, validation_split=0.2)
+
+# Plot DNN training history
+plt.plot(history_dnn.history['loss'], label='Loss')
+plt.plot(history_dnn.history['val_loss'], label='Val Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.title('DNN Training History')
+plt.legend()
+plt.show()
+
+# Experiment with optimizers and batch sizes
+optimizers = {'SGD': SGD(learning_rate=0.01), 'Momentum': SGD(learning_rate=0.01, momentum=0.9), 'Nesterov': SGD(learning_rate=0.01, momentum=0.9, nesterov=True)}
+
+for opt_name, opt in optimizers.items():
+    print(f"Training with {opt_name} optimizer")
+    model = Sequential([
+        Dense(64, input_dim=X_train.shape[1], activation='relu'),
+        Dense(32, activation='relu'),
+        Dense(16, activation='relu'),
+        Dense(1, activation='linear')
+    ])
+    
+    model.compile(optimizer=opt, loss='mse', metrics=['mae'])
+    history = model.fit(X_train, y_train, epochs=50, batch_size=32, validation_split=0.2, verbose=0)
+    
+    # Plot loss for each optimizer
+    plt.plot(history.history['loss'], label=f'{opt_name} Loss')
+    plt.plot(history.history['val_loss'], label=f'{opt_name} Val Loss')
+
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.title('Optimizer Comparison')
+plt.legend()
+plt.show()
+
+# Model evaluation on test data
+test_loss, test_mae = dnn_model.evaluate(X_test, y_test, verbose=1)
+print(f"Test Loss: {test_loss}, Test MAE: {test_mae}")
+
+# Save the final model
+dnn_model.save('insurance_ann_model.h5')
+print("Model saved successfully!")
